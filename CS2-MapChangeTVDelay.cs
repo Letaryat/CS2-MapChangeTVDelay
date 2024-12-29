@@ -11,12 +11,13 @@ namespace CS2MapChangeStopTV;
 public class MapChangeStopTV : BasePluginConfig
 {
     [JsonPropertyName("ReplayName")] public string ReplayName { get; set; } = "demo-{mapname}-{servername}-{date}-{time}-{timedate}";
+    [JsonPropertyName("DemoDirectory")] public string DemoDirectory { get; set; } = "replays";
     [JsonPropertyName("Debug")] public bool Debug { get; set; } = true;
 }
 public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
 {
     public override string ModuleName => "CS2-MapChangeStopTV";
-    public override string ModuleVersion => "0.0.3";
+    public override string ModuleVersion => "0.0.4";
     public override string ModuleAuthor => "Letaryat";
     public override string ModuleDescription => "Delays map change and stops tv record";
     public string? fileName;
@@ -29,6 +30,20 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
     public override void Load(bool hotReload)
     {
         LogDebug("CS2-MapChangeStopTV - Loaded");
+
+        try
+        {
+            if(!Directory.Exists(Path.Combine(Server.GameDirectory, "csgo", Config.DemoDirectory)))
+            {
+                Directory.CreateDirectory(Path.Combine(Server.GameDirectory, "csgo", Config.DemoDirectory));
+                LogDebug($"Created a new directory: {Config.DemoDirectory}");
+            }
+        }
+        catch(Exception ex)
+        {
+            LogDebug($"Error while creating a dir: {ex}");
+        }
+
         //Listeners:
         AddCommandListener("changelevel", ListenerChangeLevel, HookMode.Pre);
         AddCommandListener("map", ListenerChangeLevel, HookMode.Pre);
@@ -61,7 +76,7 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
             {
                 fileName = fileName.Replace(placeholder.Key, placeholder.Value);
             }
-            Server.NextWorldUpdate(() => Server.ExecuteCommand($"tv_record \"replays/{fileName}.dem\""));
+            Server.NextWorldUpdate(() => Server.ExecuteCommand($"tv_record \"{Config.DemoDirectory}/{fileName}.dem\""));
             LogDebug($"Recording demo: {fileName}");
             return HookResult.Continue;
         });
