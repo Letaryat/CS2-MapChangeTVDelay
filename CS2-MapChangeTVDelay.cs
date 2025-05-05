@@ -17,10 +17,11 @@ public class MapChangeStopTV : BasePluginConfig
 public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
 {
     public override string ModuleName => "CS2-MapChangeStopTV";
-    public override string ModuleVersion => "0.0.4";
+    public override string ModuleVersion => "0.0.5";
     public override string ModuleAuthor => "Letaryat";
     public override string ModuleDescription => "Delays map change and stops tv record";
     public string? fileName;
+    private bool isRecording = false;
     public MapChangeStopTV Config { get; set; }
     public void OnConfigParsed(MapChangeStopTV config)
     {
@@ -33,13 +34,13 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
 
         try
         {
-            if(!Directory.Exists(Path.Combine(Server.GameDirectory, "csgo", Config.DemoDirectory)))
+            if (!Directory.Exists(Path.Combine(Server.GameDirectory, "csgo", Config.DemoDirectory)))
             {
                 Directory.CreateDirectory(Path.Combine(Server.GameDirectory, "csgo", Config.DemoDirectory));
                 LogDebug($"Created a new directory: {Config.DemoDirectory}");
             }
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             LogDebug($"Error while creating a dir: {ex}");
         }
@@ -50,18 +51,20 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
         AddCommandListener("host_workshop_map", ListenerChangeLevel, HookMode.Pre);
         AddCommandListener("ds_workshop_changelevel", ListenerChangeLevel, HookMode.Pre);
 
-        RegisterListener<OnMapStart>((mapname) => {
+        RegisterListener<OnMapStart>((mapname) =>
+        {
             fileName = null;
             LogDebug($"New map start ({mapname}). Filename = null");
         });
-        RegisterEventHandler<EventCsWinPanelMatch>((e, i) => {
-            Server.ExecuteCommand("tv_stoprecord");
+        RegisterEventHandler<EventCsWinPanelMatch>((e, i) =>
+        {
             LogDebug("Recording stopped because of EventCsWinPanelMatch");
+            StopRecord();
             return HookResult.Continue;
         });
         RegisterEventHandler<EventRoundStart>((e, i) =>
         {
-            if(fileName != null) {return HookResult.Continue;}
+            if (fileName != null) { return HookResult.Continue; }
             fileName = Config.ReplayName;
             var placeholdersReplacement = new Dictionary<string, string>
             {
@@ -72,30 +75,39 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
                 {"{timedate}", DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss")},
                 {"{1s1kformat}", $"auto-{DateTime.Now:yyyyMMdd-HHmm}-{Server.MapName}"}
             };
-            foreach(var placeholder in placeholdersReplacement)
+            foreach (var placeholder in placeholdersReplacement)
             {
                 fileName = fileName.Replace(placeholder.Key, placeholder.Value);
             }
+            isRecording = true;
             Server.NextWorldUpdate(() => Server.ExecuteCommand($"tv_record \"{Config.DemoDirectory}/{fileName}.dem\""));
             LogDebug($"Recording demo: {fileName}");
             return HookResult.Continue;
         });
     }
-    public override void Unload(bool hotReload) 
+    public override void Unload(bool hotReload)
     {
         LogDebug("CS2-MapChangeStopTV - Unloaded");
-        Server.ExecuteCommand("tv_stoprecord");
+        StopRecord();
     }
     public HookResult ListenerChangeLevel(CCSPlayerController? player, CommandInfo info)
     {
-        Server.ExecuteCommand("tv_stoprecord");
         LogDebug("Stopped TV Record before changing map.");
+        StopRecord();
         return HookResult.Continue;
     }
     public void LogDebug(string message)
     {
-        if(Config.Debug == false) {return;}
+        if (Config.Debug == false) { return; }
         Logger.LogInformation($"{DateTime.Now} | {message}");
+    }
+    public void StopRecord()
+    {
+        if (isRecording)
+        {
+            Server.ExecuteCommand("tv_stoprecord");
+            isRecording = false;
+        }
     }
 
 }
