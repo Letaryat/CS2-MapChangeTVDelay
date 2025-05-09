@@ -17,12 +17,12 @@ public class MapChangeStopTV : BasePluginConfig
 public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
 {
     public override string ModuleName => "CS2-MapChangeStopTV";
-    public override string ModuleVersion => "0.0.5";
+    public override string ModuleVersion => "0.0.6";
     public override string ModuleAuthor => "Letaryat";
     public override string ModuleDescription => "Delays map change and stops tv record";
     public string? fileName;
     private bool isRecording = false;
-    public MapChangeStopTV Config { get; set; }
+    public required MapChangeStopTV Config { get; set; }
     public void OnConfigParsed(MapChangeStopTV config)
     {
         Config = config;
@@ -56,6 +56,16 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
             fileName = null;
             LogDebug($"New map start ({mapname}). Filename = null");
         });
+
+        RegisterListener<OnMapEnd>(() =>
+        {
+            if(fileName != null)
+            {
+                LogDebug($"Ending map, ending demo!");
+                StopRecord();
+            }
+        });
+
         RegisterEventHandler<EventCsWinPanelMatch>((e, i) =>
         {
             LogDebug("Recording stopped because of EventCsWinPanelMatch");
@@ -106,6 +116,10 @@ public class CS2MapChangeStopTV : BasePlugin, IPluginConfig<MapChangeStopTV>
         if (isRecording)
         {
             Server.ExecuteCommand("tv_stoprecord");
+            if(fileName != null)
+            {
+                fileName = null;
+            }
             isRecording = false;
         }
     }
